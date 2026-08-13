@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>핏그라운드 실시간 트레드밀 통합 시스템</title>
 
   <!-- Firebase SDK 라이브러리 추가 -->
@@ -12,101 +12,144 @@
 
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body {
+    html, body {
+      width: 100vw;
+      height: 100vh;
       background-color: #0f172a;
       color: #ffffff;
       font-family: system-ui, -apple-system, sans-serif;
-      padding: 20px;
+      overflow: hidden; /* 스크롤바 완전히 제거 */
+    }
+    body { 
+      padding: 10px; 
+      display: flex;
+      flex-direction: column;
     }
 
     .tab-bar {
       display: flex;
-      gap: 10px;
-      margin-bottom: 20px;
+      gap: 8px;
+      margin-bottom: 10px;
       background: #1e293b;
-      padding: 8px;
+      padding: 6px;
       border-radius: 12px;
+      flex-shrink: 0;
     }
     .tab-btn {
       flex: 1;
-      padding: 12px;
+      padding: 8px 12px;
       background: none;
       border: none;
       color: #94a3b8;
-      font-size: 1rem;
+      font-size: clamp(0.85rem, 1.2vw, 1rem);
       font-weight: bold;
       cursor: pointer;
       border-radius: 8px;
       transition: all 0.2s;
+      white-space: nowrap;
     }
     .tab-btn.active { background: #38bdf8; color: #0f172a; }
-    .tab-content { display: none; }
-    .tab-content.active { display: block; }
+    
+    /* 탭 영역 전체 높이에 맞게 설정 */
+    .tab-content { display: none; width: 100%; height: calc(100vh - 65px); }
+    .tab-content.active { display: flex; flex-direction: column; }
 
-    header { text-align: center; margin-bottom: 15px; }
-    header h1 { font-size: 2rem; color: #38bdf8; letter-spacing: 2px; }
+    header { text-align: center; margin-bottom: 8px; flex-shrink: 0; }
+    header h1 { font-size: clamp(1.1rem, 2.2vw, 1.6rem); color: #38bdf8; letter-spacing: 1.5px; }
 
-    .leaderboard-title { text-align: center; font-size: 0.9rem; color: #94a3b8; margin-bottom: 8px; font-weight: bold; }
-    .leaderboard { display: flex; justify-content: center; gap: 15px; margin-bottom: 20px; }
+    .leaderboard-title { text-align: center; font-size: clamp(0.8rem, 1.2vw, 1rem); color: #38bdf8; margin-bottom: 6px; font-weight: bold; flex-shrink: 0; }
+    .leaderboard { 
+      display: flex; 
+      justify-content: center; 
+      gap: 10px; 
+      margin-bottom: 10px; 
+      flex-shrink: 0;
+    }
     .rank-card {
       background: #1e293b;
-      border-radius: 12px;
-      padding: 10px 20px;
+      border-radius: 8px;
+      padding: 6px 12px;
       display: flex;
       align-items: center;
-      gap: 12px;
+      gap: 8px;
       border: 2px solid #334155;
-      min-width: 220px;
+      flex: 1;
+      max-width: 280px;
     }
     .rank-card.rank-1 { border-color: #f59e0b; background: rgba(245, 158, 11, 0.1); }
     .rank-card.rank-2 { border-color: #94a3b8; background: rgba(148, 163, 184, 0.1); }
     .rank-card.rank-3 { border-color: #b45309; background: rgba(180, 83, 9, 0.1); }
 
-    .rank-icon { font-size: 1.8rem; }
+    .rank-icon { font-size: 1.2rem; }
     .rank-info { display: flex; flex-direction: column; }
-    .rank-title { font-size: 0.8rem; color: #94a3b8; font-weight: bold; }
-    .rank-name { font-size: 1.1rem; font-weight: bold; color: #ffffff; }
-    .rank-dist { font-size: 0.9rem; color: #38bdf8; font-weight: bold; }
+    .rank-title { font-size: 0.65rem; color: #94a3b8; font-weight: bold; }
+    .rank-name { font-size: clamp(0.8rem, 1.2vw, 1rem); font-weight: bold; color: #ffffff; }
+    .rank-dist { font-size: 0.75rem; color: #38bdf8; font-weight: bold; }
     
-    .grid-container { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; min-height: 480px; }
+    /* [핵심] 상단 4개, 하단 3개 전용 컨테이너 및 자동 높이 수축 설정 */
+    .grid-container { 
+      display: flex; 
+      flex-direction: column;
+      gap: 10px; 
+      width: 100%;
+      flex: 1;
+      min-height: 0; /* 화면 이탈 방지 */
+    }
+
+    .row-top, .row-bottom {
+      display: flex;
+      gap: 10px;
+      width: 100%;
+      flex: 1;
+      min-height: 0;
+    }
+    
     .card {
       background: #1e293b;
-      border-radius: 16px;
-      padding: 20px;
+      border-radius: 12px;
+      padding: 10px;
       display: flex;
       flex-direction: column;
       justify-content: space-between;
-      border: 3px solid #334155;
+      border: 2px solid #334155;
       transition: all 0.3s ease;
+      flex: 1;
+      height: 100%;
+      box-sizing: border-box;
     }
-    .card.inactive { opacity: 0.35; filter: grayscale(100%); }
-    .card-header { display: flex; justify-content: space-between; align-items: center; }
-    .treadmill-title { font-size: 1.5rem; font-weight: bold; }
-    .runner-name { color: #38bdf8; font-size: 1.2rem; margin-top: 4px; font-weight: bold; }
 
-    .status-badge { padding: 4px 12px; border-radius: 20px; font-size: 0.85rem; font-weight: bold; background-color: #475569; }
+    .card.inactive { opacity: 0.35; filter: grayscale(100%); }
+    .card-header { display: flex; justify-content: space-between; align-items: flex-start; }
+    .treadmill-title { font-size: clamp(0.95rem, 1.5vw, 1.2rem); font-weight: bold; }
+    .runner-name { color: #38bdf8; font-size: clamp(0.85rem, 1.2vw, 1rem); margin-top: 2px; font-weight: bold; }
+
+    .status-badge { padding: 3px 8px; border-radius: 20px; font-size: 0.7rem; font-weight: bold; background-color: #475569; white-space: nowrap; }
     .card.active .status-badge { background-color: #22c55e; color: #ffffff; }
 
-    .metrics { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 15px 0; }
-    .metric-box { background: #0f172a; padding: 10px; border-radius: 10px; text-align: center; }
-    .metric-label { font-size: 0.8rem; color: #94a3b8; margin-bottom: 4px; }
-    .metric-value { font-size: 1.8rem; font-weight: 800; }
-    .unit { font-size: 0.85rem; font-weight: normal; color: #64748b; }
+    .metrics { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin: 6px 0; }
+    .metric-box { background: #0f172a; padding: 6px; border-radius: 6px; text-align: center; }
+    .metric-label { font-size: 0.65rem; color: #94a3b8; margin-bottom: 2px; }
+    .metric-value { font-size: clamp(1rem, 1.8vw, 1.3rem); font-weight: 800; }
+    .unit { font-size: 0.65rem; font-weight: normal; color: #64748b; }
 
-    .hr-box { background: #0f172a; padding: 12px; border-radius: 12px; text-align: center; border-left: 6px solid #64748b; }
-    .hr-value { font-size: 2.4rem; font-weight: 900; }
+    .hr-box { background: #0f172a; padding: 6px 8px; border-radius: 8px; text-align: center; border-left: 4px solid #64748b; }
+    .hr-value { font-size: clamp(1.2rem, 2.2vw, 1.6rem); font-weight: 900; }
 
+    /* 모바일 뷰 / QR 뷰 전용 레이아웃 */
+    #mobile-view, #qr-view { overflow-y: auto; }
+    
     .mobile-container {
+      width: 100%;
       max-width: 420px;
-      margin: 20px auto;
+      margin: 10px auto;
       background: #1e293b;
-      padding: 30px;
-      border-radius: 20px;
+      padding: 20px;
+      border-radius: 16px;
       border: 2px solid #38bdf8;
       text-align: center;
       box-shadow: 0 10px 25px rgba(0,0,0,0.5);
     }
-    .mobile-container h2 { margin-bottom: 10px; color: #38bdf8; }
+    .mobile-container h2 { margin-bottom: 10px; color: #38bdf8; font-size: 1.3rem; }
     .mobile-badge {
       display: inline-block;
       background: #38bdf8;
@@ -114,49 +157,54 @@
       font-weight: bold;
       padding: 6px 16px;
       border-radius: 20px;
-      margin-bottom: 20px;
-      font-size: 1.1rem;
+      margin-bottom: 15px;
+      font-size: 1rem;
     }
-    .input-group { margin-bottom: 20px; text-align: left; }
-    .input-group label { display: block; font-size: 0.9rem; color: #94a3b8; margin-bottom: 8px; }
+    .input-group { margin-bottom: 15px; text-align: left; }
+    .input-group label { display: block; font-size: 0.85rem; color: #94a3b8; margin-bottom: 6px; }
     .input-group input, .input-group select {
       width: 100%;
-      padding: 14px;
-      border-radius: 10px;
+      padding: 12px;
+      border-radius: 8px;
       border: 1px solid #475569;
       background: #0f172a;
       color: white;
-      font-size: 1.1rem;
+      font-size: 1rem;
     }
     .btn-submit {
       width: 100%;
-      padding: 16px;
-      border-radius: 10px;
+      padding: 14px;
+      border-radius: 8px;
       border: none;
       background: #22c55e;
       color: white;
-      font-size: 1.2rem;
+      font-size: 1.1rem;
       font-weight: bold;
       cursor: pointer;
     }
     .btn-stop-sim {
       width: 100%;
-      padding: 14px;
-      border-radius: 10px;
+      padding: 12px;
+      border-radius: 8px;
       border: 1px solid #ef4444;
       background: rgba(239, 68, 68, 0.1);
       color: #f87171;
-      font-size: 1rem;
+      font-size: 0.95rem;
       font-weight: bold;
       cursor: pointer;
-      margin-top: 15px;
+      margin-top: 12px;
     }
 
-    .qr-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; }
-    .qr-card { background: white; color: black; padding: 20px; border-radius: 12px; text-align: center; }
-    .qr-card h3 { margin-bottom: 10px; font-size: 1.3rem; }
-    .qr-card p { font-size: 0.8rem; color: #0284c7; margin-top: 8px; word-break: break-all; font-weight: bold; }
-    .qr-image { display: flex; justify-content: center; margin-top: 10px; }
+    .qr-grid { 
+      display: grid; 
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); 
+      gap: 15px; 
+      padding-bottom: 20px;
+    }
+    .qr-card { background: white; color: black; padding: 15px; border-radius: 12px; text-align: center; }
+    .qr-card h3 { margin-bottom: 8px; font-size: 1.1rem; }
+    .qr-card p { font-size: 0.75rem; color: #0284c7; margin-top: 8px; word-break: break-all; font-weight: bold; }
+    .qr-image { display: flex; justify-content: center; margin-top: 8px; }
   </style>
 </head>
 <body>
@@ -173,7 +221,7 @@
       <h1>RUNNING ZONE LIVE DASHBOARD</h1>
     </header>
 
-    <div class="leaderboard-title">👑 명예의 전당 (최장 거리 랭킹)</div>
+    <div class="leaderboard-title" id="monthlyTitle">👑 명예의 전당 (월간 최장 거리)</div>
     <div class="leaderboard">
       <div class="rank-card rank-1">
         <div class="rank-icon">🥇</div>
@@ -213,9 +261,9 @@
       </div>
 
       <div id="activeRunningForm" style="display: none;">
-        <div style="background: #0f172a; padding: 20px; border-radius: 12px; margin-bottom: 15px;">
-          <h3 id="currentRunnerInfo" style="color: #38bdf8; font-size: 1.3rem;">홍길동 님 운동 중 🔥</h3>
-          <p style="color: #94a3b8; font-size: 0.9rem; margin-top: 5px;">TV 대시보드에 실시간 연동 중입니다.</p>
+        <div style="background: #0f172a; padding: 15px; border-radius: 12px; margin-bottom: 12px;">
+          <h3 id="currentRunnerInfo" style="color: #38bdf8; font-size: 1.1rem;">홍길동 님 운동 중 🔥</h3>
+          <p style="color: #94a3b8; font-size: 0.85rem; margin-top: 5px;">TV 대시보드에 실시간 연동 중입니다.</p>
         </div>
         <button class="btn-stop-sim" onclick="finishWorkout()">🛑 운동 종료 (기록 저장)</button>
       </div>
@@ -228,7 +276,6 @@
   </div>
 
   <script>
-    // 💡 아래 firebaseConfig에 본인의 프로젝트 정보를 넣어주세요.
     const firebaseConfig = {
       apiKey: "YOUR_API_KEY",
       authDomain: "test-1-44912.firebaseapp.com",
@@ -242,17 +289,32 @@
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
 
-    let treadmills = Array.from({ length: 8 }, (_, i) => ({
+    let treadmills = Array.from({ length: 7 }, (_, i) => ({
       id: i + 1, runnerName: '', active: false, speed: '0.0', distance: 0, heartRate: 70
     }));
     let records = [];
     let currentSelectedTreadmillId = 1;
 
-    // 🔥 Firebase 실시간 리스너 (기기 간 실시간 동기화)
+    function getCurrentMonthKey() {
+      const d = new Date();
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      return `${year}-${month}`;
+    }
+
+    function updateMonthlyTitle() {
+      const now = new Date();
+      const month = now.getMonth() + 1;
+      const titleEl = document.getElementById('monthlyTitle');
+      if (titleEl) {
+        titleEl.innerText = `👑 ${month}월 명예의 전당 (월간 최장 거리)`;
+      }
+    }
+
     db.ref('treadmills').on('value', (snapshot) => {
       const data = snapshot.val();
       if (data) {
-        treadmills = data;
+        treadmills = data.filter(t => t.id <= 7);
         renderDashboard();
         updateMobileUI();
       } else {
@@ -260,13 +322,14 @@
       }
     });
 
-    db.ref('records').on('value', (snapshot) => {
-      const data = snapshot.val();
-      if (data) {
-        records = data;
+    function attachMonthlyRecordsListener() {
+      const monthKey = getCurrentMonthKey();
+      db.ref(`monthly_records/${monthKey}`).on('value', (snapshot) => {
+        const data = snapshot.val();
+        records = data || [];
         updateLeaderboard();
-      }
-    });
+      });
+    }
 
     function switchTab(tabId) {
       document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
@@ -290,7 +353,7 @@
 
       if (treadmillParam) {
         const treadmillNum = parseInt(treadmillParam);
-        if (treadmillNum >= 1 && treadmillNum <= 8) {
+        if (treadmillNum >= 1 && treadmillNum <= 7) {
           currentSelectedTreadmillId = treadmillNum;
           switchTab('mobile-view');
         }
@@ -374,19 +437,25 @@
 
     function saveUserRecord(runnerName, totalDistance) {
       if (!runnerName || totalDistance <= 0) return;
+      const monthKey = getCurrentMonthKey();
+      
       let newRecords = [...records];
       const existingIndex = newRecords.findIndex(r => r.name === runnerName);
       
       if (existingIndex !== -1) {
-        if (totalDistance > newRecords[existingIndex].distance) newRecords[existingIndex].distance = totalDistance;
+        if (totalDistance > newRecords[existingIndex].distance) {
+          newRecords[existingIndex].distance = totalDistance;
+        }
       } else {
         newRecords.push({ name: runnerName, distance: totalDistance });
       }
       newRecords.sort((a, b) => b.distance - a.distance);
-      db.ref('records').set(newRecords);
+      
+      db.ref(`monthly_records/${monthKey}`).set(newRecords);
     }
 
     function updateLeaderboard() {
+      updateMonthlyTitle();
       for (let i = 1; i <= 3; i++) {
         const nameEl = document.getElementById(`rank${i}-name`);
         const distEl = document.getElementById(`rank${i}-dist`);
@@ -394,14 +463,15 @@
           nameEl.innerText = records[i - 1].name;
           distEl.innerHTML = formatDistance(records[i - 1].distance);
         } else {
-          nameEl.innerText = '-'; distEl.innerText = '0 m';
+          nameEl.innerText = '-'; 
+          distEl.innerText = '0 m';
         }
       }
     }
 
-    function renderDashboard() {
-      const gridEl = document.getElementById('grid');
-      gridEl.innerHTML = treadmills.map(t => `
+    /* [핵심] 상단 4개, 하단 3개 렌더링 로직 적용 */
+    function renderCard(t) {
+      return `
         <div class="card ${t.active ? 'active' : 'inactive'}">
           <div class="card-header">
             <div>
@@ -416,10 +486,24 @@
           </div>
           <div class="hr-box"><div class="metric-label">실시간 심박수</div><div class="hr-value">${t.active ? t.heartRate : '--'} <span class="unit">BPM</span></div></div>
         </div>
-      `).join('');
+      `;
     }
 
-    // 데이터베이스 거리 실시간 증가 처리 (매초 업데이트)
+    function renderDashboard() {
+      const gridEl = document.getElementById('grid');
+      const top4 = treadmills.slice(0, 4);
+      const bottom3 = treadmills.slice(4, 7);
+
+      gridEl.innerHTML = `
+        <div class="row-top">
+          ${top4.map(t => renderCard(t)).join('')}
+        </div>
+        <div class="row-bottom">
+          ${bottom3.map(t => renderCard(t)).join('')}
+        </div>
+      `;
+    }
+
     setInterval(() => {
       let activeFound = false;
       treadmills = treadmills.map(t => {
@@ -437,7 +521,7 @@
 
       const cleanBaseUrl = window.location.protocol + "//" + window.location.host + window.location.pathname;
 
-      for (let i = 1; i <= 8; i++) {
+      for (let i = 1; i <= 7; i++) {
         const qrUrl = `${cleanBaseUrl}?treadmill=${i}`;
         const card = document.createElement('div');
         card.className = 'qr-card';
@@ -451,12 +535,14 @@
         if (typeof QRCode !== 'undefined') {
           new QRCode(document.getElementById(`qr-${i}`), {
             text: qrUrl,
-            width: 140, height: 140
+            width: 120, height: 120
           });
         }
       }
     }
 
+    updateMonthlyTitle();
+    attachMonthlyRecordsListener();
     handleUrlParams();
   </script>
 </body>
