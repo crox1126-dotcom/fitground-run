@@ -3,234 +3,249 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>핏그라운드 실시간 미러링 러닝 시스템</title>
+  <title>핏그라운드 실시간 트레드밀 통합 시스템</title>
 
-  <!-- Firebase SDK 라이브러리 -->
+  <!-- Firebase SDK 라이브러리 추가 -->
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    
     html, body {
       width: 100vw;
       height: 100vh;
-      background-color: #030712;
+      background-color: #0f172a;
       color: #ffffff;
       font-family: system-ui, -apple-system, sans-serif;
-      overflow: hidden !important;
+      overflow: hidden; /* 스크롤바 완전히 제거 */
     }
-
     body { 
-      padding: 8px; 
+      padding: 10px; 
       display: flex;
       flex-direction: column;
     }
 
-    /* 상단 탭 바 */
     .tab-bar {
       display: flex;
       gap: 8px;
-      margin-bottom: 8px;
-      background: #111827;
+      margin-bottom: 10px;
+      background: #1e293b;
       padding: 6px;
-      border-radius: 10px;
+      border-radius: 12px;
       flex-shrink: 0;
     }
     .tab-btn {
       flex: 1;
-      padding: 8px;
+      padding: 8px 12px;
       background: none;
       border: none;
-      color: #9ca3af;
-      font-size: 0.9rem;
+      color: #94a3b8;
+      font-size: clamp(0.85rem, 1.2vw, 1rem);
       font-weight: bold;
       cursor: pointer;
-      border-radius: 6px;
+      border-radius: 8px;
+      transition: all 0.2s;
       white-space: nowrap;
     }
-    .tab-btn.active { background: #38bdf8; color: #030712; }
+    .tab-btn.active { background: #38bdf8; color: #0f172a; }
     
-    .tab-content { display: none; width: 100%; height: 100%; }
+    /* 탭 영역 전체 높이에 맞게 설정 */
+    .tab-content { display: none; width: 100%; height: calc(100vh - 65px); }
     .tab-content.active { display: flex; flex-direction: column; }
 
-    /* =========================================================
-       [47x27 트레드밀 와이드 비율 전용 미러링 화면]
-       ========================================================= */
-    #mobile-view.tab-content.active {
+    header { text-align: center; margin-bottom: 8px; flex-shrink: 0; }
+    header h1 { font-size: clamp(1.1rem, 2.2vw, 1.6rem); color: #38bdf8; letter-spacing: 1.5px; }
+
+    .leaderboard-title { text-align: center; font-size: clamp(0.8rem, 1.2vw, 1rem); color: #38bdf8; margin-bottom: 6px; font-weight: bold; flex-shrink: 0; }
+    .leaderboard { 
+      display: flex; 
+      justify-content: center; 
+      gap: 10px; 
+      margin-bottom: 10px; 
+      flex-shrink: 0;
+    }
+    .rank-card {
+      background: #1e293b;
+      border-radius: 8px;
+      padding: 6px 12px;
       display: flex;
-      justify-content: center;
       align-items: center;
-      height: calc(100vh - 55px);
+      gap: 8px;
+      border: 2px solid #334155;
+      flex: 1;
+      max-width: 280px;
+    }
+    .rank-card.rank-1 { border-color: #f59e0b; background: rgba(245, 158, 11, 0.1); }
+    .rank-card.rank-2 { border-color: #94a3b8; background: rgba(148, 163, 184, 0.1); }
+    .rank-card.rank-3 { border-color: #b45309; background: rgba(180, 83, 9, 0.1); }
+
+    .rank-icon { font-size: 1.2rem; }
+    .rank-info { display: flex; flex-direction: column; }
+    .rank-title { font-size: 0.65rem; color: #94a3b8; font-weight: bold; }
+    .rank-name { font-size: clamp(0.8rem, 1.2vw, 1rem); font-weight: bold; color: #ffffff; }
+    .rank-dist { font-size: 0.75rem; color: #38bdf8; font-weight: bold; }
+    
+    /* 상단 4개, 하단 3개 전용 컨테이너 및 자동 높이 수축 설정 */
+    .grid-container { 
+      display: flex; 
+      flex-direction: column;
+      gap: 10px; 
+      width: 100%;
+      flex: 1;
+      min-height: 0; /* 화면 이탈 방지 */
     }
 
-    .mobile-container {
+    .row-top, .row-bottom {
+      display: flex;
+      gap: 10px;
       width: 100%;
-      height: 100%;
-      aspect-ratio: 47 / 27; /* 트레드밀 화면 비율 고정 */
-      max-width: 100%;
-      max-height: 100%;
-      background: #0b0f19;
-      padding: 16px;
-      border-radius: 16px;
-      border: 2px solid #38bdf8;
+      flex: 1;
+      min-height: 0;
+    }
+    
+    .card {
+      background: #1e293b;
+      border-radius: 12px;
+      padding: 10px;
       display: flex;
       flex-direction: column;
       justify-content: space-between;
-      box-shadow: 0 0 30px rgba(56, 189, 248, 0.25);
+      border: 2px solid #334155;
+      transition: all 0.3s ease;
+      flex: 1;
+      height: 100%;
+      box-sizing: border-box;
     }
 
-    .mobile-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      border-bottom: 1px solid #1e293b;
-      padding-bottom: 8px;
+    .card.inactive { opacity: 0.35; filter: grayscale(100%); }
+    .card-header { display: flex; justify-content: space-between; align-items: flex-start; }
+    .treadmill-title { font-size: clamp(0.95rem, 1.5vw, 1.2rem); font-weight: bold; }
+    .runner-name { color: #38bdf8; font-size: clamp(0.85rem, 1.2vw, 1rem); margin-top: 2px; font-weight: bold; }
+
+    .status-badge { padding: 3px 8px; border-radius: 20px; font-size: 0.7rem; font-weight: bold; background-color: #475569; white-space: nowrap; }
+    .card.active .status-badge { background-color: #22c55e; color: #ffffff; }
+
+    .metrics { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin: 6px 0; }
+    .metric-box { background: #0f172a; padding: 6px; border-radius: 6px; text-align: center; }
+    .metric-label { font-size: 0.65rem; color: #94a3b8; margin-bottom: 2px; }
+    .metric-value { font-size: clamp(1rem, 1.8vw, 1.3rem); font-weight: 800; }
+    .unit { font-size: 0.65rem; font-weight: normal; color: #64748b; }
+
+    .pace-box { background: #0f172a; padding: 6px 8px; border-radius: 8px; text-align: center; border-left: 4px solid #38bdf8; }
+    .pace-value { font-size: clamp(1.2rem, 2.2vw, 1.6rem); font-weight: 900; color: #38bdf8; }
+
+    /* 모바일 뷰 / QR 뷰 전용 레이아웃 */
+    #mobile-view, #qr-view { overflow-y: auto; }
+    
+    .mobile-container {
+      width: 100%;
+      max-width: 420px;
+      margin: 10px auto;
+      background: #1e293b;
+      padding: 20px;
+      border-radius: 16px;
+      border: 2px solid #38bdf8;
+      text-align: center;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.5);
     }
-    .mobile-title { font-size: 1.2rem; color: #38bdf8; font-weight: 900; letter-spacing: 1.5px; }
+    .mobile-container h2 { margin-bottom: 10px; color: #38bdf8; font-size: 1.3rem; }
     .mobile-badge {
+      display: inline-block;
       background: #38bdf8;
-      color: #030712;
-      font-weight: 900;
-      padding: 4px 14px;
+      color: #0f172a;
+      font-weight: bold;
+      padding: 6px 16px;
       border-radius: 20px;
+      margin-bottom: 15px;
       font-size: 1rem;
     }
-
-    .input-group { margin: 15px 0; text-align: left; }
-    .input-group label { display: block; font-size: 0.9rem; color: #9ca3af; margin-bottom: 6px; }
+    .input-group { margin-bottom: 15px; text-align: left; }
+    .input-group label { display: block; font-size: 0.85rem; color: #94a3b8; margin-bottom: 6px; }
     .input-group input, .input-group select {
       width: 100%;
-      padding: 14px;
-      border-radius: 10px;
-      border: 1px solid #374151;
-      background: #111827;
+      padding: 12px;
+      border-radius: 8px;
+      border: 1px solid #475569;
+      background: #0f172a;
       color: white;
-      font-size: 1.1rem;
+      font-size: 1rem;
     }
     .btn-submit {
       width: 100%;
-      padding: 16px;
-      border-radius: 12px;
+      padding: 14px;
+      border-radius: 8px;
       border: none;
       background: #22c55e;
       color: white;
-      font-size: 1.25rem;
+      font-size: 1.1rem;
       font-weight: bold;
       cursor: pointer;
-      box-shadow: 0 4px 20px rgba(34, 197, 94, 0.4);
     }
-
-    /* 47:27 가로 와이드 뷰 레이아웃 */
-    .running-display-wide {
-      display: grid;
-      grid-template-columns: 1.2fr 1fr;
-      gap: 12px;
-      flex: 1;
-      margin: 10px 0;
-      align-items: center;
-    }
-
-    .main-metric-card {
-      background: rgba(56, 189, 248, 0.08);
-      border: 2px solid #38bdf8;
-      border-radius: 16px;
-      padding: 16px;
-      height: 100%;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      align-items: center;
-      box-shadow: inset 0 0 20px rgba(56, 189, 248, 0.15);
-    }
-    .main-metric-card .label { font-size: 0.95rem; color: #38bdf8; font-weight: 800; letter-spacing: 1px; margin-bottom: 4px; }
-    .main-metric-card .value { font-size: clamp(3rem, 10vw, 5rem); font-weight: 900; color: #38bdf8; text-shadow: 0 0 20px rgba(56, 189, 248, 0.6); line-height: 1; }
-
-    .sub-metrics-grid {
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-      height: 100%;
-      justify-content: space-between;
-    }
-    .sub-card {
-      background: #111827;
-      border-radius: 12px;
-      padding: 12px 16px;
-      border: 1px solid #1f2937;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      flex: 1;
-    }
-    .sub-card .label { font-size: 0.85rem; color: #9ca3af; font-weight: 700; }
-    .sub-card .value { font-size: clamp(1.6rem, 5vw, 2.5rem); font-weight: 900; color: #ffffff; }
-
-    .runner-bar {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      background: #111827;
-      padding: 8px 16px;
-      border-radius: 30px;
-      border: 1px solid #1f2937;
-    }
-    .runner-name { font-size: 1.1rem; font-weight: 800; color: #f9fafb; }
-
     .btn-stop-sim {
-      padding: 8px 16px;
-      border-radius: 20px;
+      width: 100%;
+      padding: 12px;
+      border-radius: 8px;
       border: 1px solid #ef4444;
-      background: rgba(239, 68, 68, 0.2);
+      background: rgba(239, 68, 68, 0.1);
       color: #f87171;
-      font-size: 0.85rem;
+      font-size: 0.95rem;
       font-weight: bold;
       cursor: pointer;
+      margin-top: 12px;
     }
 
-    /* TV 리더보드 및 QR 스타일 유지 */
-    #tv-view.tab-content.active { display: flex; flex-direction: column; height: calc(100vh - 55px); }
-    header h1 { font-size: clamp(0.85rem, 2vh, 1.1rem); color: #38bdf8; text-align: center; }
-    .leaderboard { display: flex; justify-content: center; gap: 4px; margin-bottom: 4px; height: 8vh; }
-    .rank-card { background: #111827; border-radius: 6px; padding: 2px 6px; display: flex; align-items: center; gap: 6px; border: 1px solid #1f2937; flex: 1; max-width: 280px; }
-    .rank-title { font-size: 0.5rem; color: #9ca3af; }
-    .rank-name { font-size: 0.75rem; font-weight: bold; }
-    .rank-dist { font-size: 0.7rem; color: #38bdf8; font-weight: bold; }
-    .grid-container { display: flex; flex-direction: column; gap: 4px; flex: 1; }
-    .row-top, .row-bottom { display: flex; gap: 4px; flex: 1; }
-    .card { background: #111827; border-radius: 6px; padding: 4px; display: flex; flex-direction: column; justify-content: space-between; border: 1px solid #1f2937; flex: 1; }
-    .card.inactive { opacity: 0.4; }
-    .metrics { display: grid; grid-template-columns: 1fr 1fr; gap: 2px; }
-    .metric-box { background: #030712; padding: 2px; border-radius: 4px; text-align: center; }
-    .metric-label { font-size: 0.5rem; color: #9ca3af; }
-    .metric-value { font-size: 0.8rem; font-weight: 800; }
-    .pace-box { background: #030712; padding: 2px; border-radius: 4px; text-align: center; border-left: 2px solid #38bdf8; }
-    .pace-value { font-size: 0.85rem; font-weight: 900; color: #38bdf8; }
-
-    .qr-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 15px; overflow-y: auto; }
+    .qr-grid { 
+      display: grid; 
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); 
+      gap: 15px; 
+      padding-bottom: 20px;
+    }
     .qr-card { background: white; color: black; padding: 15px; border-radius: 12px; text-align: center; }
+    .qr-card h3 { margin-bottom: 8px; font-size: 1.1rem; }
     .qr-card p { font-size: 0.75rem; color: #0284c7; margin-top: 8px; word-break: break-all; font-weight: bold; }
+    .qr-image { display: flex; justify-content: center; margin-top: 8px; }
   </style>
 </head>
 <body>
 
-  <!-- 상단 컨트롤 탭 -->
   <div class="tab-bar">
-    <button id="btn-mobile-view" class="tab-btn active" onclick="switchTab('mobile-view')">📱 트레드밀 미러링 화면 (47x27)</button>
-    <button id="btn-tv-view" class="tab-btn" onclick="switchTab('tv-view')">📺 센터 대형 리더보드</button>
-    <button id="btn-qr-view" class="tab-btn" onclick="switchTab('qr-view')">🖨️ QR 인쇄기</button>
+    <button id="btn-tv-view" class="tab-btn active" onclick="switchTab('tv-view')">📺 TV 대시보드</button>
+    <button id="btn-mobile-view" class="tab-btn" onclick="switchTab('mobile-view')">📱 모바일 QR 체크인</button>
+    <button id="btn-qr-view" class="tab-btn" onclick="switchTab('qr-view')">🖨️ 트레드밀 QR 인쇄기</button>
   </div>
 
-  <!-- [탭 1] 모바일 미러링 화면 (47:27 트레드밀 비율 최적화) -->
-  <div id="mobile-view" class="tab-content active">
-    <div class="mobile-container">
-      <div class="mobile-header">
-        <div class="mobile-title">FITGROUND RUN</div>
-        <div class="mobile-badge" id="targetTreadmillBadge">1번 트레드밀</div>
+  <!-- [탭 1] TV 대시보드 -->
+  <div id="tv-view" class="tab-content active">
+    <header>
+      <h1>RUNNING ZONE LIVE DASHBOARD</h1>
+    </header>
+
+    <div class="leaderboard-title" id="monthlyTitle">👑 명예의 전당 (월간 최장 거리)</div>
+    <div class="leaderboard">
+      <div class="rank-card rank-1">
+        <div class="rank-icon">🥇</div>
+        <div class="rank-info"><div class="rank-title">1st PLACE</div><div class="rank-name" id="rank1-name">-</div><div class="rank-dist" id="rank1-dist">0 m</div></div>
       </div>
+      <div class="rank-card rank-2">
+        <div class="rank-icon">🥈</div>
+        <div class="rank-info"><div class="rank-title">2nd PLACE</div><div class="rank-name" id="rank2-name">-</div><div class="rank-dist" id="rank2-dist">0 m</div></div>
+      </div>
+      <div class="rank-card rank-3">
+        <div class="rank-icon">🥉</div>
+        <div class="rank-info"><div class="rank-title">3rd PLACE</div><div class="rank-name" id="rank3-name">-</div><div class="rank-dist" id="rank3-dist">0 m</div></div>
+      </div>
+    </div>
+
+    <div class="grid-container" id="grid"></div>
+  </div>
+
+  <!-- [탭 2] 모바일 체크인 -->
+  <div id="mobile-view" class="tab-content">
+    <div class="mobile-container">
+      <h2>RUNNING ZONE CHECK-IN</h2>
+      <div class="mobile-badge" id="targetTreadmillBadge">1번 트레드밀</div>
       
-      <!-- 체크인 입력 폼 -->
       <div id="checkinForm">
         <div class="input-group">
           <label>트레드밀 번호 선택</label>
@@ -245,49 +260,14 @@
         <button class="btn-submit" onclick="submitCheckin()">운동 시작하기 🔥</button>
       </div>
 
-      <!-- 실시간 러닝 와이드 디스플레이 -->
-      <div id="activeRunningForm" style="display: none; height: 100%; flex-direction: column; justify-content: space-between;">
-        
-        <div class="running-display-wide">
-          <!-- 메인 지표: 1KM 평균 페이스 -->
-          <div class="main-metric-card">
-            <div class="label">AVG PACE</div>
-            <div class="value" id="dispPace">--'--"</div>
-          </div>
-
-          <!-- 서브 지표: 거리 및 속도 -->
-          <div class="sub-metrics-grid">
-            <div class="sub-card">
-              <div class="label">DISTANCE</div>
-              <div class="value"><span id="dispDistance">0.00</span> <span style="font-size: 1rem; color: #38bdf8;">km</span></div>
-            </div>
-            <div class="sub-card">
-              <div class="label">SPEED</div>
-              <div class="value"><span id="dispSpeed">0.0</span> <span style="font-size: 1rem; color: #38bdf8;">km/h</span></div>
-            </div>
-          </div>
+      <div id="activeRunningForm" style="display: none;">
+        <div style="background: #0f172a; padding: 15px; border-radius: 12px; margin-bottom: 12px;">
+          <h3 id="currentRunnerInfo" style="color: #38bdf8; font-size: 1.1rem;">홍길동 님 운동 중 🔥</h3>
+          <p style="color: #94a3b8; font-size: 0.85rem; margin-top: 5px;">TV 대시보드에 실시간 연동 중입니다.</p>
         </div>
-
-        <!-- 하단 러너 정보 및 종료 버튼 -->
-        <div class="runner-bar">
-          <div class="runner-name">🏃‍♂️ <span id="currentRunnerName">홍길동</span> 님 RUNNING</div>
-          <button class="btn-stop-sim" onclick="finishWorkout()">운동 종료</button>
-        </div>
-
+        <button class="btn-stop-sim" onclick="finishWorkout()">🛑 운동 종료 (기록 저장)</button>
       </div>
     </div>
-  </div>
-
-  <!-- [탭 2] 센터 대형 TV 리더보드 -->
-  <div id="tv-view" class="tab-content">
-    <header><h1>RUNNING ZONE LIVE DASHBOARD</h1></header>
-    <div style="text-align: center; font-size: 0.75rem; color: #38bdf8; margin-bottom: 2px; font-weight: bold;" id="monthlyTitle">👑 명예의 전당</div>
-    <div class="leaderboard">
-      <div class="rank-card"><div style="font-size: 1rem;">🥇</div><div><div class="rank-title">1st PLACE</div><div class="rank-name" id="rank1-name">-</div><div class="rank-dist" id="rank1-dist">0 m</div></div></div>
-      <div class="rank-card"><div style="font-size: 1rem;">🥈</div><div><div class="rank-title">2nd PLACE</div><div class="rank-name" id="rank2-name">-</div><div class="rank-dist" id="rank2-dist">0 m</div></div></div>
-      <div class="rank-card"><div style="font-size: 1rem;">🥉</div><div><div class="rank-title">3rd PLACE</div><div class="rank-name" id="rank3-name">-</div><div class="rank-dist" id="rank3-dist">0 m</div></div></div>
-    </div>
-    <div class="grid-container" id="grid"></div>
   </div>
 
   <!-- [탭 3] QR 코드 생성기 -->
@@ -317,18 +297,38 @@
 
     function getCurrentMonthKey() {
       const d = new Date();
-      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      return `${year}-${month}`;
     }
 
+    function updateMonthlyTitle() {
+      const now = new Date();
+      const month = now.getMonth() + 1;
+      const titleEl = document.getElementById('monthlyTitle');
+      if (titleEl) {
+        titleEl.innerText = `👑 ${month}월 명예의 전당 (월간 최장 거리)`;
+      }
+    }
+
+    // 1km 평균 페이스 계산 로직 (min'sec"/km)
     function calcPace(distanceMeters, startTime) {
       if (!distanceMeters || distanceMeters <= 0 || !startTime) return `--'--"` ;
+      
       const elapsedSeconds = (Date.now() - startTime) / 1000;
       if (elapsedSeconds <= 0) return `--'--"` ;
+
+      // 1km 달리는데 걸리는 초 수 계산
       const secondsPerKm = (elapsedSeconds / distanceMeters) * 1000;
+      
       const minutes = Math.floor(secondsPerKm / 60);
       const seconds = Math.floor(secondsPerKm % 60);
+
+      // 이상 수치 방지 (30분/km 초과 시)
       if (minutes >= 30) return `--'--"` ;
-      return `${minutes}'${String(seconds).padStart(2, '0')}"`;
+
+      const formattedSec = String(seconds).padStart(2, '0');
+      return `${minutes}'${formattedSec}"`;
     }
 
     db.ref('treadmills').on('value', (snapshot) => {
@@ -343,8 +343,10 @@
     });
 
     function attachMonthlyRecordsListener() {
-      db.ref(`monthly_records/${getCurrentMonthKey()}`).on('value', (snapshot) => {
-        records = snapshot.val() || [];
+      const monthKey = getCurrentMonthKey();
+      db.ref(`monthly_records/${monthKey}`).on('value', (snapshot) => {
+        const data = snapshot.val();
+        records = data || [];
         updateLeaderboard();
       });
     }
@@ -352,18 +354,23 @@
     function switchTab(tabId) {
       document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
       document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
-      document.getElementById(`btn-${tabId}`).classList.add('active');
+      
+      const targetBtn = document.getElementById(`btn-${tabId}`);
+      if (targetBtn) targetBtn.classList.add('active');
       document.getElementById(tabId).classList.add('active');
+
       if(tabId === 'qr-view') generateQRCodes();
     }
 
     function formatDistance(meters) {
-      return (meters / 1000).toFixed(2);
+      if (meters < 1000) return `${meters} <span class="unit">m</span>`;
+      return `${(meters / 1000).toFixed(2)} <span class="unit">km</span>`;
     }
 
     function handleUrlParams() {
       const urlParams = new URLSearchParams(window.location.search);
       const treadmillParam = urlParams.get('treadmill');
+
       if (treadmillParam) {
         const treadmillNum = parseInt(treadmillParam);
         if (treadmillNum >= 1 && treadmillNum <= 7) {
@@ -376,11 +383,13 @@
     function updateSelectOptions() {
       const selectEl = document.getElementById('mobileTreadmillSelect');
       if (!selectEl) return;
+
       selectEl.innerHTML = treadmills.map(t => {
         const isSelected = t.id === currentSelectedTreadmillId ? 'selected' : '';
         const status = t.active ? `(이용 중: ${t.runnerName})` : '(이용 가능)';
         return `<option value="${t.id}" ${isSelected}>${t.id}번 트레드밀 ${status}</option>`;
       }).join('');
+
       document.getElementById('targetTreadmillBadge').innerText = `${currentSelectedTreadmillId}번 트레드밀`;
     }
 
@@ -395,16 +404,13 @@
       updateSelectOptions();
       const checkinForm = document.getElementById('checkinForm');
       const activeRunningForm = document.getElementById('activeRunningForm');
+      
       const target = treadmills.find(t => t.id === currentSelectedTreadmillId);
 
       if (target && target.active) {
         checkinForm.style.display = 'none';
-        activeRunningForm.style.display = 'flex';
-        
-        document.getElementById('currentRunnerName').innerText = target.runnerName;
-        document.getElementById('dispPace').innerText = calcPace(target.distance, target.startTime);
-        document.getElementById('dispDistance').innerText = formatDistance(target.distance);
-        document.getElementById('dispSpeed').innerText = target.speed;
+        activeRunningForm.style.display = 'block';
+        document.getElementById('currentRunnerInfo').innerText = `${target.runnerName} 님 운동 중 🔥`;
       } else {
         checkinForm.style.display = 'block';
         activeRunningForm.style.display = 'none';
@@ -414,16 +420,22 @@
     function submitCheckin() {
       const name = document.getElementById('mobileNameInput').value.trim();
       if (!name) { alert('이름을 입력해주세요!'); return; }
+
       const targetIndex = treadmills.findIndex(t => t.id === currentSelectedTreadmillId);
-      
-      if (targetIndex !== -1 && !treadmills[targetIndex].active) {
+      if (targetIndex !== -1 && treadmills[targetIndex].active) { 
+        alert(`⚠️ ${currentSelectedTreadmillId}번 트레드밀은 현재 이용 중입니다.`); 
+        return; 
+      }
+
+      if (targetIndex !== -1) {
         treadmills[targetIndex].runnerName = name;
         treadmills[targetIndex].active = true;
-        treadmills[targetIndex].speed = (Math.random() * 3 + 8).toFixed(1);
+        treadmills[targetIndex].speed = (Math.random() * 3 + 7).toFixed(1);
         treadmills[targetIndex].distance = 0;
         treadmills[targetIndex].startTime = Date.now();
 
         db.ref('treadmills').set(treadmills);
+        alert(`${currentSelectedTreadmillId}번 트레드밀에 [${name}] 님 체크인 완료!`);
         document.getElementById('mobileNameInput').value = '';
       }
     }
@@ -437,33 +449,39 @@
         treadmills[targetIndex].speed = '0.0'; 
         treadmills[targetIndex].distance = 0; 
         treadmills[targetIndex].startTime = null;
+        
         db.ref('treadmills').set(treadmills);
+        alert('운동이 종료되었습니다.');
       }
     }
 
     function saveUserRecord(runnerName, totalDistance) {
       if (!runnerName || totalDistance <= 0) return;
       const monthKey = getCurrentMonthKey();
+      
       let newRecords = [...records];
       const existingIndex = newRecords.findIndex(r => r.name === runnerName);
+      
       if (existingIndex !== -1) {
-        if (totalDistance > newRecords[existingIndex].distance) newRecords[existingIndex].distance = totalDistance;
+        if (totalDistance > newRecords[existingIndex].distance) {
+          newRecords[existingIndex].distance = totalDistance;
+        }
       } else {
         newRecords.push({ name: runnerName, distance: totalDistance });
       }
       newRecords.sort((a, b) => b.distance - a.distance);
+      
       db.ref(`monthly_records/${monthKey}`).set(newRecords);
     }
 
     function updateLeaderboard() {
-      const month = new Date().getMonth() + 1;
-      document.getElementById('monthlyTitle').innerText = `👑 ${month}월 명예의 전당`;
+      updateMonthlyTitle();
       for (let i = 1; i <= 3; i++) {
         const nameEl = document.getElementById(`rank${i}-name`);
         const distEl = document.getElementById(`rank${i}-dist`);
         if (records && records[i - 1]) {
           nameEl.innerText = records[i - 1].name;
-          distEl.innerText = `${formatDistance(records[i - 1].distance)} km`;
+          distEl.innerHTML = formatDistance(records[i - 1].distance);
         } else {
           nameEl.innerText = '-'; 
           distEl.innerText = '0 m';
@@ -472,23 +490,40 @@
     }
 
     function renderCard(t) {
+      const paceText = t.active ? calcPace(t.distance, t.startTime) : `--'--"`;
       return `
         <div class="card ${t.active ? 'active' : 'inactive'}">
-          <div><div style="font-size: 0.75rem; font-weight: bold;">${t.id}번 트레드밀</div><div style="color: #38bdf8; font-size: 0.75rem; font-weight: bold;">${t.runnerName || '대기 중'}</div></div>
-          <div class="metrics">
-            <div class="metric-box"><div class="metric-label">속도</div><div class="metric-value">${t.speed}</div></div>
-            <div class="metric-box"><div class="metric-label">거리</div><div class="metric-value">${formatDistance(t.distance)}k</div></div>
+          <div class="card-header">
+            <div>
+              <div class="treadmill-title">${t.id}번 트레드밀</div>
+              <div class="runner-name">${t.runnerName ? t.runnerName + ' 님' : '대기 중'}</div>
+            </div>
+            <span class="status-badge">${t.active ? 'RUNNING' : 'WAITING'}</span>
           </div>
-          <div class="pace-box"><div class="pace-value">${t.active ? calcPace(t.distance, t.startTime) : `--'--"`}</div></div>
+          <div class="metrics">
+            <div class="metric-box"><div class="metric-label">속도</div><div class="metric-value">${t.speed} <span class="unit">km/h</span></div></div>
+            <div class="metric-box"><div class="metric-label">거리</div><div class="metric-value">${formatDistance(t.distance)}</div></div>
+          </div>
+          <div class="pace-box">
+            <div class="metric-label">1km 평균 페이스</div>
+            <div class="pace-value">${paceText} <span class="unit">/km</span></div>
+          </div>
         </div>
       `;
     }
 
     function renderDashboard() {
       const gridEl = document.getElementById('grid');
+      const top4 = treadmills.slice(0, 4);
+      const bottom3 = treadmills.slice(4, 7);
+
       gridEl.innerHTML = `
-        <div class="row-top">${treadmills.slice(0, 4).map(t => renderCard(t)).join('')}</div>
-        <div class="row-bottom">${treadmills.slice(4, 7).map(t => renderCard(t)).join('')}</div>
+        <div class="row-top">
+          ${top4.map(t => renderCard(t)).join('')}
+        </div>
+        <div class="row-bottom">
+          ${bottom3.map(t => renderCard(t)).join('')}
+        </div>
       `;
     }
 
@@ -499,24 +534,37 @@
         activeFound = true;
         return { ...t, distance: t.distance + Math.floor(Math.random() * 5 + 3) };
       });
-      if (activeFound) db.ref('treadmills').set(treadmills);
+      if (activeFound) { db.ref('treadmills').set(treadmills); }
     }, 1000);
 
     function generateQRCodes() {
       const container = document.getElementById('qrContainer');
       if (!container) return;
       container.innerHTML = '';
+
       const cleanBaseUrl = window.location.protocol + "//" + window.location.host + window.location.pathname;
+
       for (let i = 1; i <= 7; i++) {
         const qrUrl = `${cleanBaseUrl}?treadmill=${i}`;
         const card = document.createElement('div');
         card.className = 'qr-card';
-        card.innerHTML = `<h3>${i}번 트레드밀</h3><div class="qr-image" id="qr-${i}"></div><p>${qrUrl}</p>`;
+        card.innerHTML = `
+          <h3>${i}번 트레드밀</h3>
+          <div class="qr-image" id="qr-${i}"></div>
+          <p>${qrUrl}</p>
+        `;
         container.appendChild(card);
-        if (typeof QRCode !== 'undefined') new QRCode(document.getElementById(`qr-${i}`), { text: qrUrl, width: 120, height: 120 });
+
+        if (typeof QRCode !== 'undefined') {
+          new QRCode(document.getElementById(`qr-${i}`), {
+            text: qrUrl,
+            width: 120, height: 120
+          });
+        }
       }
     }
 
+    updateMonthlyTitle();
     attachMonthlyRecordsListener();
     handleUrlParams();
   </script>
