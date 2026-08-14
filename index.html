@@ -86,7 +86,7 @@
     .rank-name { font-size: clamp(0.8rem, 1.2vw, 1rem); font-weight: bold; color: #ffffff; }
     .rank-dist { font-size: 0.75rem; color: #38bdf8; font-weight: bold; }
     
-    /* [핵심] 상단 4개, 하단 3개 전용 컨테이너 및 자동 높이 수축 설정 */
+    /* 상단 4개, 하단 3개 전용 컨테이너 및 자동 높이 수축 설정 */
     .grid-container { 
       display: flex; 
       flex-direction: column;
@@ -132,8 +132,8 @@
     .metric-value { font-size: clamp(1rem, 1.8vw, 1.3rem); font-weight: 800; }
     .unit { font-size: 0.65rem; font-weight: normal; color: #64748b; }
 
-    .hr-box { background: #0f172a; padding: 6px 8px; border-radius: 8px; text-align: center; border-left: 4px solid #64748b; }
-    .hr-value { font-size: clamp(1.2rem, 2.2vw, 1.6rem); font-weight: 900; }
+    .pace-box { background: #0f172a; padding: 6px 8px; border-radius: 8px; text-align: center; border-left: 4px solid #38bdf8; }
+    .pace-value { font-size: clamp(1.2rem, 2.2vw, 1.6rem); font-weight: 900; color: #38bdf8; }
 
     /* 모바일 뷰 / QR 뷰 전용 레이아웃 */
     #mobile-view, #qr-view { overflow-y: auto; }
@@ -290,7 +290,7 @@
     const db = firebase.database();
 
     let treadmills = Array.from({ length: 7 }, (_, i) => ({
-      id: i + 1, runnerName: '', active: false, speed: '0.0', distance: 0, heartRate: 70
+      id: i + 1, runnerName: '', active: false, speed: '0.0', distance: 0, startTime: null
     }));
     let records = [];
     let currentSelectedTreadmillId = 1;
@@ -309,6 +309,26 @@
       if (titleEl) {
         titleEl.innerText = `👑 ${month}월 명예의 전당 (월간 최장 거리)`;
       }
+    }
+
+    // 1km 평균 페이스 계산 로직 (min'sec"/km)
+    function calcPace(distanceMeters, startTime) {
+      if (!distanceMeters || distanceMeters <= 0 || !startTime) return `--'--"` ;
+      
+      const elapsedSeconds = (Date.now() - startTime) / 1000;
+      if (elapsedSeconds <= 0) return `--'--"` ;
+
+      // 1km 달리는데 걸리는 초 수 계산
+      const secondsPerKm = (elapsedSeconds / distanceMeters) * 1000;
+      
+      const minutes = Math.floor(secondsPerKm / 60);
+      const seconds = Math.floor(secondsPerKm % 60);
+
+      // 이상 수치 방지 (30분/km 초과 시)
+      if (minutes >= 30) return `--'--"` ;
+
+      const formattedSec = String(seconds).padStart(2, '0');
+      return `${minutes}'${formattedSec}"`;
     }
 
     db.ref('treadmills').on('value', (snapshot) => {
@@ -411,8 +431,8 @@
         treadmills[targetIndex].runnerName = name;
         treadmills[targetIndex].active = true;
         treadmills[targetIndex].speed = (Math.random() * 3 + 7).toFixed(1);
-        treadmills[targetIndex].heartRate = Math.floor(Math.random() * 20 + 120);
         treadmills[targetIndex].distance = 0;
+        treadmills[targetIndex].startTime = Date.now();
 
         db.ref('treadmills').set(treadmills);
         alert(`${currentSelectedTreadmillId}번 트레드밀에 [${name}] 님 체크인 완료!`);
@@ -428,7 +448,7 @@
         treadmills[targetIndex].runnerName = ''; 
         treadmills[targetIndex].speed = '0.0'; 
         treadmills[targetIndex].distance = 0; 
-        treadmills[targetIndex].heartRate = 70;
+        treadmills[targetIndex].startTime = null;
         
         db.ref('treadmills').set(treadmills);
         alert('운동이 종료되었습니다.');
@@ -469,8 +489,8 @@
       }
     }
 
-    /* [핵심] 상단 4개, 하단 3개 렌더링 로직 적용 */
     function renderCard(t) {
+      const paceText = t.active ? calcPace(t.distance, t.startTime) : `--'--"`;
       return `
         <div class="card ${t.active ? 'active' : 'inactive'}">
           <div class="card-header">
@@ -484,7 +504,10 @@
             <div class="metric-box"><div class="metric-label">속도</div><div class="metric-value">${t.speed} <span class="unit">km/h</span></div></div>
             <div class="metric-box"><div class="metric-label">거리</div><div class="metric-value">${formatDistance(t.distance)}</div></div>
           </div>
-          <div class="hr-box"><div class="metric-label">실시간 심박수</div><div class="hr-value">${t.active ? t.heartRate : '--'} <span class="unit">BPM</span></div></div>
+          <div class="pace-box">
+            <div class="metric-label">1km 평균 페이스</div>
+            <div class="pace-value">${paceText} <span class="unit">/km</span></div>
+          </div>
         </div>
       `;
     }
